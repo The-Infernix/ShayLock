@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Configuration of the blocker watchdog.
+
+    * typeWindowStateChanged  -> fires when another app comes to the foreground, which is how
+                                  the blocker detects that Instagram was opened. (typeWindowsChanged
+                                  is deliberately not requested: it fires for status-bar, keyboard
+                                  and toast windows and must not be treated as a foreground app.)
+    * flagRequestFilterKeyEvents + canRequestFilterKeyEvents
+                               -> lets the service see (and swallow) the BACK, HOME and RECENTS
+                                  key events while the lock screen is visible.
+    * notificationTimeout      -> keep the service responsive with a short debounce window.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault|flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:canRequestFilterKeyEvents="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="100" />

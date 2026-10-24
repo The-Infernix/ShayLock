@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        The app is dark-only. A matching window background avoids a white flash while the Compose
+        content is inflating; the actual background gradient is drawn by MainActivity.
+    -->
+    <style name="Theme.ShayLock" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#08080A</item>
+        <item name="android:colorBackground">#08080A</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!--
+        Theme of the blocking lock screen. It is deliberately opaque and full screen so that no
+        part of the blocked app is visible behind the overlay.
+
+        The display cutout handling lives in values-v27/themes.xml because
+        android:windowLayoutInDisplayCutoutMode only exists from API 27.
+    -->
+    <style name="Theme.ShayLock.Overlay" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
+</resources>

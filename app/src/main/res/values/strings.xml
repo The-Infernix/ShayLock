@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ShayLock</string>
+
+    <!-- Accessibility service -->
+    <string name="accessibility_service_label">ShayLock Blocker</string>
+    <string name="accessibility_service_description">ShayLock uses this service to detect when Instagram is opened so it can display a full-screen lock screen over it. It only watches which app is in the foreground and blocks the Home, Back and Recents buttons while the lock screen is shown.</string>
+
+    <!-- Foreground service notification -->
+    <string name="notification_channel_name">Blocking status</string>
+    <string name="notification_channel_description">Shows an ongoing notification while app blocking is active.</string>
+    <string name="notification_blocking_title">ShayLock is blocking Instagram</string>
+    <string name="notification_blocking_text">Tap to open the blocker settings.</string>
+
+    <!-- Accessibility watchdog health notification -->
+    <string name="notification_health_channel_name">Protection alerts</string>
+    <string name="notification_health_channel_description">Warns you when ShayLock protection has been switched off.</string>
+    <string name="notification_protection_off_title">Protection is off</string>
+    <string name="notification_protection_off_text">ShayLock\'s accessibility service is disabled, so Instagram is no longer being blocked. Tap to re-enable it.</string>
+    <string name="notification_protection_off_action">Open settings</string>
+</resources>

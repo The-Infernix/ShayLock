@@ -27,12 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.core.net.toUri
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.shaylock.core.BlockController
 import com.example.shaylock.core.BlockPolicy
 import com.example.shaylock.core.PermissionUtils
 import com.example.shaylock.core.formatLimit
 import com.example.shaylock.service.OverlayController
 import com.example.shaylock.ui.PermissionUiState
+import com.example.shaylock.ui.screens.AboutScreen
 import com.example.shaylock.ui.screens.PinDialog
 import com.example.shaylock.ui.screens.SetupScreen
 import com.example.shaylock.ui.theme.InkBottom
@@ -88,43 +92,58 @@ class MainActivity : ComponentActivity() {
                 val pinExtensionsUsedToday by
                     BlockController.pinExtensionsUsedToday.collectAsState()
 
+                val navController = rememberNavController()
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Brush.verticalGradient(listOf(InkTop, InkBottom))),
                 ) {
-                    Scaffold(
-                        modifier = Modifier.fillMaxSize(),
-                        containerColor = Color.Transparent,
-                    ) { innerPadding ->
-                        SetupScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            permissionState = permissionState,
-                            limit = limit,
-                            usedTodayMs = usedTodayMs,
-                            limitRemainingMs = limitRemainingMs,
-                            isBlockingEffective = isBlockingEffective,
-                            sessionRemainingMs = sessionRemainingMs,
-                            pinExtensionsRemainingToday =
-                                (BlockPolicy.MAX_PIN_EXTENSIONS_PER_DAY - pinExtensionsUsedToday)
-                                    .coerceAtLeast(0),
-                            selectedLimitMs = selectedLimitMs,
-                            onSelectLimit = { selectedLimitMs = it },
-                            onRequestSetLimit = { limitMs -> requestSetLimit(limitMs) },
-                            onRequestDisable = { pinRequest = PinRequest.Disable },
-                            onRequestPause = {
-                                if (BlockController.hasPinExtensionsLeft()) {
-                                    pinRequest = PinRequest.Pause(
-                                        BlockPolicy.PAUSE_DURATION_MS,
-                                    )
-                                }
-                            },
-                            onResumeNow = { BlockController.endSession() },
-                            onOpenAccessibilitySettings = { openAccessibilitySettings() },
-                            onOpenOverlaySettings = { openOverlaySettings() },
-                            onRequestNotifications = { requestNotificationPermission() },
-                            onPreviewOverlay = { previewOverlay() },
-                        )
+                    NavHost(navController = navController, startDestination = "home") {
+                        composable("home") {
+                            Scaffold(
+                                modifier = Modifier.fillMaxSize(),
+                                containerColor = Color.Transparent,
+                            ) { innerPadding ->
+                                SetupScreen(
+                                    modifier = Modifier.padding(innerPadding),
+                                    permissionState = permissionState,
+                                    limit = limit,
+                                    usedTodayMs = usedTodayMs,
+                                    limitRemainingMs = limitRemainingMs,
+                                    isBlockingEffective = isBlockingEffective,
+                                    sessionRemainingMs = sessionRemainingMs,
+                                    pinExtensionsRemainingToday =
+                                        (BlockPolicy.MAX_PIN_EXTENSIONS_PER_DAY - pinExtensionsUsedToday)
+                                            .coerceAtLeast(0),
+                                    selectedLimitMs = selectedLimitMs,
+                                    onSelectLimit = { selectedLimitMs = it },
+                                    onRequestSetLimit = { limitMs -> requestSetLimit(limitMs) },
+                                    onRequestDisable = { pinRequest = PinRequest.Disable },
+                                    onRequestPause = {
+                                        if (BlockController.hasPinExtensionsLeft()) {
+                                            pinRequest = PinRequest.Pause(
+                                                BlockPolicy.PAUSE_DURATION_MS,
+                                            )
+                                        }
+                                    },
+                                    onResumeNow = { BlockController.endSession() },
+                                    onOpenAccessibilitySettings = { openAccessibilitySettings() },
+                                    onOpenOverlaySettings = { openOverlaySettings() },
+                                    onRequestNotifications = { requestNotificationPermission() },
+                                    onPreviewOverlay = { previewOverlay() },
+                                    onOpenAbout = { navController.navigate("about") },
+                                )
+                            }
+                        }
+                        composable("about") {
+                            AboutScreen(
+                                accessibilityEnabled = permissionState.accessibilityEnabled,
+                                overlayGranted = permissionState.overlayGranted,
+                                onNavigateBack = { navController.popBackStack() },
+                                onFixPermissions = { openAccessibilitySettings() },
+                            )
+                        }
                     }
 
                     val request = pinRequest
@@ -171,6 +190,14 @@ class MainActivity : ComponentActivity() {
      */
     private fun requestSetLimit(limitMs: Long) {
         if (BlockController.isPinRequiredToSetLimit()) {
+            if (!BlockController.canChangeDailyLimit()) {
+                android.widget.Toast.makeText(
+                    this,
+                    "Daily limit can only be changed 1 time per day. Try again tomorrow.",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+                return
+            }
             pinRequest = PinRequest.SetLimit(limitMs)
             return
         }
@@ -189,7 +216,17 @@ class MainActivity : ComponentActivity() {
      */
     private fun confirmWithPin(request: PinRequest, code: String): Boolean {
         val accepted = when (request) {
-            is PinRequest.SetLimit -> BlockController.applyDailyLimit(request.limitMs, code)
+            is PinRequest.SetLimit -> {
+                if (BlockController.isPinRequiredToSetLimit() && !BlockController.canChangeDailyLimit()) {
+                    android.widget.Toast.makeText(
+                        this,
+                        "Daily limit can only be changed 1 time per day. Try again tomorrow.",
+                        android.widget.Toast.LENGTH_LONG,
+                    ).show()
+                    return false
+                }
+                BlockController.applyDailyLimit(request.limitMs, code)
+            }
             is PinRequest.Disable -> BlockController.setLimiterEnabled(false, code)
             is PinRequest.Pause -> BlockController.pauseFor(request.durationMs, code)
         }
@@ -197,9 +234,25 @@ class MainActivity : ComponentActivity() {
 
         if (accepted) {
             when (request) {
-                is PinRequest.SetLimit -> OverlayController.keepAlive(this)
+                is PinRequest.SetLimit -> {
+                    OverlayController.keepAlive(this)
+                    android.widget.Toast.makeText(this, "Daily limit updated", android.widget.Toast.LENGTH_SHORT).show()
+                }
                 is PinRequest.Disable -> OverlayController.stop(this)
                 is PinRequest.Pause -> Unit
+            }
+        } else {
+            when (request) {
+                is PinRequest.SetLimit -> {
+                    if (BlockController.isPinRequiredToSetLimit() && !BlockController.canChangeDailyLimit()) {
+                        android.widget.Toast.makeText(
+                            this,
+                            "Daily limit can only be changed 1 time per day. Try again tomorrow.",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+                else -> Unit
             }
         }
         return accepted

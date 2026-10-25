@@ -43,6 +43,8 @@ object BlockController {
     private const val KEY_USAGE_SINCE = "usage_since"
     private const val KEY_SESSION_END = "session_end"
     private const val KEY_PIN_EXTENSIONS_USED = "pin_extensions_used"
+    private const val KEY_LIMIT_CHANGE_COUNT_TODAY = "limit_change_count_today"
+    private const val KEY_LIMIT_CHANGE_DAY_START = "limit_change_day_start"
 
     /** How often the running foreground time is written to disk. */
     private const val CHECKPOINT_INTERVAL_MS = 5_000L
@@ -55,6 +57,7 @@ object BlockController {
     private val _limit = MutableStateFlow(DailyLimit())
     private val _sessionEndWallClock = MutableStateFlow(0L)
     private val _pinExtensionsUsed = MutableStateFlow(0)
+    private val _limitChangesToday = MutableStateFlow(0)
     private val _now = MutableStateFlow(System.currentTimeMillis())
 
     /** Wall clock at which the current foreground session of a blocked app started; 0 = idle. */
@@ -91,6 +94,21 @@ object BlockController {
 
     /** Number of PIN-approved extensions used today. */
     val pinExtensionsUsedToday: StateFlow<Int> = _pinExtensionsUsed.asStateFlow()
+
+    /** Number of times the daily limit has been changed today. */
+    val limitChangesToday: StateFlow<Int> = _limitChangesToday.asStateFlow()
+
+    /** Reset daily limit change cooldown and PIN extension counters for testing. */
+    fun debugResetDailyLimits() {
+        _limitChangesToday.value = 0
+        _pinExtensionsUsed.value = 0
+        persist()
+    }
+
+    /**
+     * True when the daily limit can still be changed today.
+     */
+    fun canChangeDailyLimit(): Boolean = _limitChangesToday.value < 1
 
     /**
      * True when the blocked apps must currently be blocked.
@@ -141,6 +159,16 @@ object BlockController {
         _pinExtensionsUsed.value =
             if (stored.dayStartWallClock == rolled.dayStartWallClock) {
                 storedExtensions.coerceIn(0, BlockPolicy.MAX_PIN_EXTENSIONS_PER_DAY)
+            } else {
+                0
+            }
+
+        // The daily limit change count is also per calendar day.
+        val storedLimitChangeDay = prefs.getLong(KEY_LIMIT_CHANGE_DAY_START, 0L)
+        val storedLimitChanges = prefs.getInt(KEY_LIMIT_CHANGE_COUNT_TODAY, 0)
+        _limitChangesToday.value =
+            if (storedLimitChangeDay == rolled.dayStartWallClock) {
+                storedLimitChanges.coerceAtLeast(0)
             } else {
                 0
             }
@@ -233,6 +261,7 @@ object BlockController {
 
         _limit.value = rolled
         _pinExtensionsUsed.value = 0
+        _limitChangesToday.value = 0
         // A session that started before midnight only counts from the new day onwards.
         val since = _usageSince.value
         if (since > 0L) _usageSince.value = maxOf(since, rolled.dayStartWallClock)
@@ -289,10 +318,21 @@ object BlockController {
      */
     fun applyDailyLimit(limitMs: Long, pin: String?): Boolean {
         val firstSetup = !isPinRequiredToSetLimit()
-        if (!firstSetup && (pin == null || !authorize(pin))) return false
+        if (!firstSetup) {
+            if (pin == null || !authorize(pin)) return false
+            if (!canChangeDailyLimit()) {
+                Log.i(TAG, "Daily limit change rejected - cooldown exhausted for today")
+                return false
+            }
+        }
 
         val rolled = _limit.value.rolledToDay(_now.value)
         _limit.value = rolled.copy(isEnabled = true, limitMs = limitMs.coerceAtLeast(0L))
+        if (!firstSetup) {
+            _limitChangesToday.value += 1
+        } else {
+            _limitChangesToday.value = 0
+        }
         persist()
         Log.i(TAG, "Daily allowance set to ${_limit.value.limitMs} ms (first setup=$firstSetup)")
         return true
@@ -393,6 +433,8 @@ object BlockController {
             putLong(KEY_DAY_START, limit.dayStartWallClock)
             putLong(KEY_USAGE_SINCE, _usageSince.value)
             putInt(KEY_PIN_EXTENSIONS_USED, _pinExtensionsUsed.value)
+            putInt(KEY_LIMIT_CHANGE_COUNT_TODAY, _limitChangesToday.value)
+            putLong(KEY_LIMIT_CHANGE_DAY_START, limit.dayStartWallClock)
         }
     }
 }

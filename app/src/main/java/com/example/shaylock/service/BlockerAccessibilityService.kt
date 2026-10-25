@@ -53,6 +53,9 @@ class BlockerAccessibilityService : AccessibilityService() {
     /** True while the screen-state receiver is registered. */
     private var screenReceiverRegistered = false
 
+    /** True when blocking instagram.com in Chrome with no PIN bypass allowed. */
+    private var permanentChromeWebBlock = false
+
     /**
      * Stops the allowance while the screen is off. Transient system-UI events no longer pause the
      * counter, so the keyguard must be handled explicitly.
@@ -224,6 +227,55 @@ class BlockerAccessibilityService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
+    private fun isInstagramWebInChrome(): Boolean {
+        if (foregroundPackage != "com.android.chrome" && foregroundPackage != "com.chrome.beta" && foregroundPackage != "com.chrome.dev" && foregroundPackage != "com.chrome.canary") return false
+        val root = rootInActiveWindow ?: return false
+        try {
+            // Try common URL bar ids across Chrome variants
+            val ids = listOf(
+                "com.android.chrome:id/url_bar",
+                "com.chrome.beta:id/url_bar",
+                "com.chrome.dev:id/url_bar",
+                "com.chrome.canary:id/url_bar",
+                "org.chromium.chrome:id/url_bar",
+            )
+            for (id in ids) {
+                val urlBars = root.findAccessibilityNodeInfosByViewId(id)
+                if (!urlBars.isNullOrEmpty()) {
+                    for (node in urlBars) {
+                        val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+                        if (text.contains("instagram.com", ignoreCase = true)) {
+                            return true
+                        }
+                    }
+                    break
+                }
+            }
+            // Also scan all nodes for instagram.com text as fallback (covers incognito/custom UI)
+            val allNodes = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+            val stack = ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
+            stack.addLast(root)
+            while (stack.isNotEmpty() && allNodes.size < 200) {
+                val n = stack.removeLast()
+                allNodes.add(n)
+                for (i in 0 until n.childCount) {
+                    val c = n.getChild(i) ?: continue
+                    stack.addLast(c)
+                }
+            }
+            for (node in allNodes) {
+                val t = node.text?.toString().orEmpty()
+                val d = node.contentDescription?.toString().orEmpty()
+                if (t.contains("instagram.com", ignoreCase = true) || d.contains("instagram.com", ignoreCase = true)) {
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to inspect Chrome URL bar", e)
+        }
+        return false
+    }
+
     /**
      * Decides whether the currently visible app must be covered by the lock overlay.
      *
@@ -232,12 +284,32 @@ class BlockerAccessibilityService : AccessibilityService() {
     private fun evaluateBlocking(packageName: String?) {
         val target = packageName ?: return
 
+        val isChromeInstagramWeb = (target == "com.android.chrome" || target == "com.chrome.beta" || target == "com.chrome.dev" || target == "com.chrome.canary") && isInstagramWebInChrome()
+        if (isChromeInstagramWeb) {
+            permanentChromeWebBlock = true
+            if (OverlayService.isOverlayShowing) {
+                OverlayController.hide(this)
+            }
+            Log.i(TAG, "Blocking instagram.com in Chrome - permanent web block (no PIN)")
+            OverlayController.show(this, BlockPolicy.PRIMARY_PACKAGE)
+            BlockController.setUsageCountingSuppressed(true)
+            return
+        }
+
+        if (permanentChromeWebBlock && target !in setOf("com.android.chrome", "com.chrome.beta", "com.chrome.dev", "com.chrome.canary")) {
+            permanentChromeWebBlock = false
+        }
+
         val shouldBlock =
             BlockPolicy.isBlockedPackage(target) &&
                 BlockController.isBlockingEffective.value
 
         if (shouldBlock) {
-            if (!OverlayService.isOverlayShowing) {
+            if (!OverlayService.isOverlayShowing || permanentChromeWebBlock) {
+                if (permanentChromeWebBlock) {
+                    permanentChromeWebBlock = false
+                    OverlayController.hide(this)
+                }
                 val used = BlockController.usedTodayMs.value
                 val limit = BlockController.dailyLimit.value.limitMs
                 Log.i(TAG, "Blocking $target - daily allowance used up ($used / $limit ms)")
@@ -246,7 +318,11 @@ class BlockerAccessibilityService : AccessibilityService() {
             // The user is looking at the lock screen, not at the app: stop charging the allowance.
             BlockController.setUsageCountingSuppressed(true)
         } else {
-            if (OverlayService.isOverlayShowing) {
+            if (OverlayService.isOverlayShowing && !permanentChromeWebBlock) {
+                Log.i(TAG, "Releasing overlay")
+                OverlayController.hide(this)
+            } else if (OverlayService.isOverlayShowing && permanentChromeWebBlock && !isChromeInstagramWeb) {
+                permanentChromeWebBlock = false
                 Log.i(TAG, "Releasing overlay")
                 OverlayController.hide(this)
             }

@@ -79,8 +79,10 @@ object BlockPolicy {
      */
     val DAILY_LIMIT_OPTIONS: List<Long> = listOf(
         10 * 1000L, // Test option: the allowance runs out after 10 seconds.
+        5 * 60 * 1000L,
         15 * 60 * 1000L,
         30 * 60 * 1000L,
+        45 * 60 * 1000L,
         60 * 60 * 1000L,
     )
 

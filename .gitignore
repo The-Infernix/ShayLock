@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+.idea/
+# Internal development notes and session logs - not part of the release
+OPENCODE.md
+UI_POLISH_PLAN.md
+session-ses_*.md
+freebuff-chat-*.md

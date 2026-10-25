@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
@@ -114,6 +115,7 @@ fun SetupScreen(
     onOpenOverlaySettings: () -> Unit,
     onRequestNotifications: () -> Unit,
     onPreviewOverlay: () -> Unit,
+    onOpenAbout: () -> Unit = {},
 ) {
     val ready = permissionState.readyToBlock
     val isDashboard = ready && limit.isEnabled
@@ -442,6 +444,26 @@ fun SetupScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = "Preview the lock screen",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = InkTextSecondary,
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                TextButton(
+                    onClick = onOpenAbout,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = InkTextSecondary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "About & Settings Info",
                         style = MaterialTheme.typography.labelLarge,
                         color = InkTextSecondary,
                     )

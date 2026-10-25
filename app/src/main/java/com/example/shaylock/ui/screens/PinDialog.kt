@@ -176,6 +176,15 @@ fun PinDialog(
             ) {
                 Text("Cancel", style = MaterialTheme.typography.labelLarge)
             }
+
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Made with ❤️ by Infernix",
+                style = MaterialTheme.typography.labelSmall,
+                color = com.example.shaylock.ui.theme.InkTextTertiary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
         }
     }
 }

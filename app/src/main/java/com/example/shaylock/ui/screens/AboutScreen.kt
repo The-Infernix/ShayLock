@@ -457,6 +457,16 @@ fun AboutScreen(
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "Made with ❤️ by Infernix",
+                style = MaterialTheme.typography.labelSmall,
+                color = com.example.shaylock.ui.theme.InkTextTertiary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
             Spacer(Modifier.height(20.dp))
         }
     }

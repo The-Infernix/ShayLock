@@ -6,8 +6,11 @@
 [![Min SDK](https://img.shields.io/badge/Min%20SDK-26%20(Android%208.0)-orange)](https://developer.android.com/about/versions/oreo/android-8.0)
 [![Target SDK](https://img.shields.io/badge/Target%20SDK-35-blue)](https://developer.android.com/about/versions/15)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Website](https://img.shields.io/badge/Website-shaylock.vercel.app-black)](https://shaylock.vercel.app/)
 
 A strict, dark-themed Instagram screen-time blocker for Android. ShayLock limits daily usage of Instagram (`com.instagram.android`) and Instagram Lite (`com.instagram.lite`), permanently blocks `instagram.com` in Chrome, locks the app behind a full-screen overlay when your allowance runs out, and protects critical actions with a PIN.
+
+**[Download from the official website](https://shaylock.vercel.app/)** | **[Latest APK](https://github.com/The-Infernix/ShayLock/releases/latest/download/ShayLock.apk)**
 
 ## Features
 

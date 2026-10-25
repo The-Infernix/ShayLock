@@ -489,6 +489,17 @@ fun SetupScreen(
             onRequestNotifications = onRequestNotifications,
         )
 
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Made with ❤️ by Infernix",
+            style = MaterialTheme.typography.labelSmall,
+            color = InkTextTertiary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+
     }
 }
 

@@ -80,8 +80,9 @@ import com.example.shaylock.ui.theme.InkTextSecondary
 import com.example.shaylock.ui.theme.InkTextTertiary
 
 private const val APP_VERSION = "v1.0.0"
-private const val GITHUB_URL = "https://github.com/"
-private const val PROJECT_REPO_URL = "https://github.com/"
+private const val GITHUB_URL = "https://github.com/The-Infernix/ShayLock.git"
+private const val PROJECT_REPO_URL = "https://the-infernix.github.io/ShayLock/"
+private const val WEBSITE_URL = "https://shaylock.vercel.app/"
 
 private val MIT_LICENSE_TEXT = """
 MIT License
@@ -296,6 +297,15 @@ fun AboutScreen(
                         subtitle = PROJECT_REPO_URL,
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_REPO_URL))
+                            context.startActivity(intent)
+                        },
+                    )
+                    HorizontalDivider(color = InkHairline)
+                    LinkRow(
+                        title = "Website",
+                        subtitle = WEBSITE_URL,
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(WEBSITE_URL))
                             context.startActivity(intent)
                         },
                     )

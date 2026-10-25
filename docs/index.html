@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShayLock - Zero-Tolerance Screen-Time Enforcement</title>
+    <meta name="description" content="ShayLock is a strict, local-only Android screen-time blocker for Instagram with daily limits, cooldowns, capped PIN overrides, and permanent Chrome web blocking.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                    },
+                    colors: {
+                        background: '#0B0B0F',
+                        surface: '#16161E',
+                        border: '#2A2A35',
+                        accent: '#6B8BFF',
+                        accentGlow: 'rgba(107, 139, 255, 0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0B0B0F;
+            color: #FFFFFF;
+            font-family: 'Inter', system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .grid-pattern {
+            background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.03) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Background Gradient -->
+    <div class="fixed inset-0 -z-10 overflow-hidden">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-accent/10 blur-[120px] rounded-full"></div>
+        <div class="absolute bottom-0 right-0 w-[600px] h-[300px] bg-accent/5 blur-[100px] rounded-full"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 backdrop-blur-xl bg-background/80 border-b border-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center">
+                        <img src="https://raw.githubusercontent.com/The-Infernix/ShayLock/main/ShayLock%20Secure%20Instagram%20Blocker%20Logo.png" alt="ShayLock Logo" class="w-6 h-6 object-contain">
+                    </div>
+                    <span class="text-lg font-semibold tracking-tight">ShayLock</span>
+                </div>
+                <div class="hidden md:flex items-center gap-6">
+                    <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
+                    <a href="#architecture" class="text-sm text-gray-400 hover:text-white transition-colors">Architecture</a>
+                    <a href="#privacy" class="text-sm text-gray-400 hover:text-white transition-colors">Privacy</a>
+                    <a href="#install" class="text-sm text-gray-400 hover:text-white transition-colors">Install</a>
+                    <a href="https://github.com/The-Infernix/ShayLock" target="_blank" rel="noopener noreferrer" class="text-sm text-gray-400 hover:text-white transition-colors">GitHub</a>
+                </div>
+                <a href="https://github.com/The-Infernix/ShayLock/releases/download/v1.0.0/ShayLock-v1.0.0.apk" class="hidden sm:flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-gray-100 transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download APK v1.0.0
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto text-center">
+            <div class="flex justify-center mb-8">
+                <div class="w-20 h-20 rounded-2xl bg-surface border border-border flex items-center justify-center shadow-2xl shadow-accent/10">
+                    <img src="https://raw.githubusercontent.com/The-Infernix/ShayLock/main/ShayLock%20Secure%20Instagram%20Blocker%20Logo.png" alt="ShayLock Logo" class="w-12 h-12 object-contain">
+                </div>
+            </div>
+            <h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
+                <span class="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">ShayLock</span>
+            </h1>
+            <p class="text-xl sm:text-2xl text-gray-400 mb-10 max-w-3xl mx-auto leading-relaxed">
+                Zero-Tolerance Screen-Time Enforcement
+            </p>
+            <p class="text-base sm:text-lg text-gray-500 mb-12 max-w-2xl mx-auto leading-relaxed">
+                A strict, local-only Android screen-time blocker engineered to eliminate mindless Instagram scrolling with uncompromising enforcement.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="https://github.com/The-Infernix/ShayLock/releases/download/v1.0.0/ShayLock-v1.0.0.apk" class="group flex items-center gap-3 px-8 py-4 bg-white text-black text-base font-semibold rounded-xl hover:bg-gray-100 transition-all shadow-lg shadow-white/5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download APK v1.0.0
+                    <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </a>
+                <a href="https://github.com/The-Infernix/ShayLock" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 px-8 py-4 bg-surface border border-border text-white text-base font-medium rounded-xl hover:bg-[#1C1C25] transition-all">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
+            <p class="mt-8 text-sm text-gray-600">Android 8.0+ • 100% On-Device • No Account Required</p>
+        </div>
+    </header>
+
+    <!-- Use Cases Grid -->
+    <section id="features" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+                    <span class="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">Built for Discipline</span>
+                </h2>
+                <p class="text-lg text-gray-400 max-w-2xl mx-auto">Engineered to solve real digital discipline problems with zero compromises.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Card 1 -->
+                <div class="group relative p-8 rounded-2xl bg-surface border border-border hover:border-gray-600 transition-all duration-300">
+                    <div class="absolute inset-0 rounded-2xl bg-gradient-to-b from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative">
+                        <div class="w-12 h-12 rounded-xl bg-accentGlow border border-accent/30 flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3">Eliminating Late-Night Reels Loops</h3>
+                        <p class="text-gray-400 leading-relaxed">Strict daily allowances prevent endless scrolling sessions. Once your limit is exhausted, access is locked until midnight with no easy reset.</p>
+                    </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="group relative p-8 rounded-2xl bg-surface border border-border hover:border-gray-600 transition-all duration-300">
+                    <div class="absolute inset-0 rounded-2xl bg-gradient-to-b from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative">
+                        <div class="w-12 h-12 rounded-xl bg-accentGlow border border-accent/30 flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9-3-9m-9 9a9 9 0 019-9"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3">Stopping Web Browser Bypasses</h3>
+                        <p class="text-gray-400 leading-relaxed">Instagram is no longer accessible through Google Chrome. Opening instagram.com triggers an instant, permanent block with no PIN bypass or quota exemption.</p>
+                    </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="group relative p-8 rounded-2xl bg-surface border border-border hover:border-gray-600 transition-all duration-300">
+                    <div class="absolute inset-0 rounded-2xl bg-gradient-to-b from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="relative">
+                        <div class="w-12 h-12 rounded-xl bg-accentGlow border border-accent/30 flex items-center justify-center mb-6">
+                            <svg class="w-6 h-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2  2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-3">Enforcing Real Limit Changes</h3>
+                        <p class="text-gray-400 leading-relaxed">Impulse-driven limit increases are neutralized with a strict 1-change-per-day cooldown. The allowance stays fixed until midnight, forcing deliberate decisions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Architecture Cards -->
+    <section id="architecture" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+                    <span class="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">Core Architecture</span>
+                </h2>
+                <p class="text-lg text-gray-400 max-w-2xl mx-auto">Robust, low-level enforcement mechanisms working in unison.</p>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="p-6 rounded-xl bg-surface border border-border">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-accentGlow text-accent border border-accent/30">Mechanic</span>
+                    </div>
+                    <h3 class="text-base font-semibold mb-2">Accessibility Service Interception</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Watches window state changes to track foreground time with precision and intercept key events when blocked.</p>
+                </div>
+                <div class="p-6 rounded-xl bg-surface border border-border">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-accentGlow text-accent border border-accent/30">Mechanic</span>
+                    </div>
+                    <h3 class="text-base font-semibold mb-2">Permanent Chrome Web Filtering</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Inspects Chrome URL bar nodes to detect instagram.com and blocks instantly with zero exceptions.</p>
+                </div>
+                <div class="p-6 rounded-xl bg-surface border border-border">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-accentGlow text-accent border border-accent/30">Mechanic</span>
+                    </div>
+                    <h3 class="text-base font-semibold mb-2">1-Change/Day Cooldown</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">Daily limit configuration locked to a single change per calendar day to prevent impulsive adjustments.</p>
+                </div>
+                <div class="p-6 rounded-xl bg-surface border border-border">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="px-2.5 py-1 text-xs font-medium rounded-full bg-accentGlow text-accent border border-accent/30">Mechanic</span>
+                    </div>
+                    <h3 class="text-base font-semibold mb-2">3x Capped 5-Min Overrides</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed">PIN unlocks grant exactly 5 minutes and are strictly capped at 3 uses per day until midnight.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Privacy & Safety Banner -->
+    <section id="privacy" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto">
+            <div class="relative p-10 sm:p-12 rounded-2xl bg-surface border border-border overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-r from-accent/10 via-transparent to-transparent"></div>
+                <div class="relative flex flex-col md:flex-row items-center gap-8">
+                    <div class="flex-shrink-0">
+                        <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-1 text-center md:text-left">
+                        <h2 class="text-2xl sm:text-3xl font-bold mb-3">Privacy & Safety First</h2>
+                        <p class="text-lg text-gray-300 leading-relaxed mb-2">100% local, on-device processing with zero data collection.</p>
+                        <p class="text-gray-400 leading-relaxed">ShayLock never transmits browsing activity, app usage, or personal data. All state is stored locally in SharedPreferences. No accounts, no analytics, no backend.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Guide -->
+    <section id="install" class="py-20 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+                    <span class="bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">Installation Guide</span>
+                </h2>
+                <p class="text-lg text-gray-400">Get protected in minutes with a simple 3-step setup.</p>
+            </div>
+            <div class="space-y-4">
+                <div class="flex items-start gap-6 p-6 rounded-xl bg-surface border border-border">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-bold text-lg">1</div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold mb-2">Download APK</h3>
+                        <p class="text-gray-400">Download <span class="text-white font-medium">ShayLock-v1.0.0.apk</span> from the <a href="https://github.com/The-Infernix/ShayLock/releases" target="_blank" rel="noopener noreferrer" class="text-accent hover:underline">GitHub Releases</a> page.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-6 p-6 rounded-xl bg-surface border border-border">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-bold text-lg">2</div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold mb-2">Enable Unknown Sources</h>
+                        <p class="text-gray-400">Allow installation from your browser or file manager when prompted. Android may require this permission depending on your device and Android version.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-6 p-6 rounded-xl bg-surface border border-border">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-bold text-lg">3</div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold mb-2">Grant Accessibility & Overlay Rights</h3>
+                        <p class="text-gray-400">Open ShayLock and grant <span class="text-white">Accessibility Service</span> and <span class="text-white">Display over other apps (SYSTEM_ALERT_WINDOW)</span> permissions. Notifications are optional but recommended.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-10 text-center">
+                <a href="https://github.com/The-Infernix/ShayLock/releases/download/v1.0.0/ShayLock-v1.0.0.apk" class="inline-flex items-center gap-3 px-8 py-4 bg-white text-black text-base font-semibold rounded-xl hover:bg-gray-100 transition-all shadow-lg shadow-white/5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download APK v1.0.0 Now
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-4 sm:px-6 lg:px-8 border-t border-border">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center">
+                        <img src="https://raw.githubusercontent.com/The-Infernix/ShayLock/main/ShayLock%20Secure%20Instagram%20Blocker%20Logo.png" alt="ShayLock Logo" class="w-6 h-6 object-contain">
+                    </div>
+                    <div>
+                        <div class="font-semibold">ShayLock</div>
+                        <div class="text-sm text-gray-500">Zero-Tolerance Screen-Time Enforcement</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <a href="https://github.com/The-Infernix/ShayLock" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.202-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        GitHub Repo
+                    </a>
+                    <a href="https://github.com/The-Infernix/ShayLock/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors">MIT License</a>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-border text-center">
+                <p class="text-sm text-gray-500">© 2026 ShayLock. Built with discipline, designed for focus.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

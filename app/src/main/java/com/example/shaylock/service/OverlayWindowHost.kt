@@ -44,19 +44,35 @@ object OverlayWindowHost {
     val isShowing: Boolean
         get() = dialog?.isShowing == true
 
+    /** Package currently covered by the lock window, or null when it is hidden. */
+    @Volatile
+    var currentTargetPackage: String? = null
+        private set
+
+    /** True while the visible lock window is the instagram.com-in-Chrome rule. */
+    @Volatile
+    var currentWebBlock: Boolean = false
+        private set
+
     /**
      * Raises the lock screen over the current app.
      *
      * @param context context used to create the window; a service or application context works
      *   because `TYPE_APPLICATION_OVERLAY` does not require an activity token.
      * @param targetPackage the package being blocked, used for the title on the lock screen.
+     * @param webBlock true for the optional instagram.com-in-Chrome rule.
      * @param onUnlocked invoked after a valid PIN was entered.
      */
     @Synchronized
-    fun show(context: Context, targetPackage: String, onUnlocked: () -> Unit) {
+    fun show(
+        context: Context,
+        targetPackage: String,
+        webBlock: Boolean = false,
+        onUnlocked: () -> Unit,
+    ) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             // Window operations must happen on the main thread.
-            mainHandler.post { show(context, targetPackage, onUnlocked) }
+            mainHandler.post { show(context, targetPackage, webBlock, onUnlocked) }
             return
         }
 
@@ -93,7 +109,8 @@ object OverlayWindowHost {
                 ShayLockTheme {
                     OverlayScreen(
                         targetPackage = targetPackage,
-                        onSubmitPin = { code -> BlockController.submitPin(code) },
+                        webBlock = webBlock,
+                        onSubmitPin = { code -> BlockController.submitPin(targetPackage, code) },
                         onUnlocked = {
                             dismiss()
                             onUnlocked()
@@ -138,7 +155,9 @@ object OverlayWindowHost {
 
         dialog = lockDialog
         lifecycleOwner = owner
-        Log.i(TAG, "Lock screen shown over $targetPackage")
+        currentTargetPackage = targetPackage
+        currentWebBlock = webBlock
+        Log.i(TAG, "Lock screen shown over $targetPackage (webBlock=$webBlock)")
     }
 
     /** Removes the lock window if it is on screen. */
@@ -157,6 +176,8 @@ object OverlayWindowHost {
             }
         }
         dialog = null
+        currentTargetPackage = null
+        currentWebBlock = false
 
         lifecycleOwner?.onDestroy()
         lifecycleOwner = null

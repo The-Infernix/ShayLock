@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -20,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -33,29 +33,34 @@ import androidx.navigation.compose.rememberNavController
 import com.example.shaylock.core.BlockController
 import com.example.shaylock.core.BlockPolicy
 import com.example.shaylock.core.PermissionUtils
+import com.example.shaylock.core.TrackedAppState
 import com.example.shaylock.core.formatLimit
+import com.example.shaylock.service.BlockerAccessibilityService
 import com.example.shaylock.service.OverlayController
 import com.example.shaylock.ui.PermissionUiState
 import com.example.shaylock.ui.screens.AboutScreen
+import com.example.shaylock.ui.screens.AppPickerScreen
 import com.example.shaylock.ui.screens.PinDialog
+import com.example.shaylock.ui.screens.PinSettingsDialog
 import com.example.shaylock.ui.screens.SetupScreen
 import com.example.shaylock.ui.theme.InkBottom
 import com.example.shaylock.ui.theme.InkTop
 import com.example.shaylock.ui.theme.ShayLockTheme
 
 /**
- * The single activity of the app: it hosts the setup / dashboard screen.
+ * The single activity of the app: it hosts the dashboard, the app picker and the about screen.
  *
  * Everything else runs in the background:
  *  - [com.example.shaylock.service.BlockerAccessibilityService] watches the foreground app and
- *    measures how much of the daily allowance is actually consumed.
- *  - [com.example.shaylock.service.OverlayService] draws the strict lock screen.
+ *    measures how much of each app's daily allowance is actually consumed.
+ *  - [com.example.shaylock.service.OverlayService] draws the strict lock screen over any app
+ *    whose allowance is used up.
  */
 class MainActivity : ComponentActivity() {
 
     private var permissionState by mutableStateOf(PermissionUiState())
-    private var selectedLimitMs by mutableLongStateOf(BlockPolicy.DEFAULT_DAILY_LIMIT_MS)
     private var pinRequest by mutableStateOf<PinRequest?>(null)
+    private var showPinSettings by mutableStateOf(false)
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val permissionRecheck = Runnable { refreshPermissionState() }
@@ -77,20 +82,13 @@ class MainActivity : ComponentActivity() {
         )
 
         BlockController.initialize(applicationContext)
-        selectedLimitMs = BlockController.dailyLimit.value.limitMs
-            .takeIf { it > 0L }
-            ?: BlockPolicy.DEFAULT_DAILY_LIMIT_MS
         refreshPermissionState()
 
         setContent {
             ShayLockTheme {
-                val limit by BlockController.dailyLimit.collectAsState()
-                val usedTodayMs by BlockController.usedTodayMs.collectAsState()
-                val limitRemainingMs by BlockController.limitRemainingMs.collectAsState()
-                val isBlockingEffective by BlockController.isBlockingEffective.collectAsState()
-                val sessionRemainingMs by BlockController.sessionRemainingMs.collectAsState()
-                val pinExtensionsUsedToday by
-                    BlockController.pinExtensionsUsedToday.collectAsState()
+                val appStates by BlockController.appStates.collectAsState()
+                val blockerEnabled by BlockController.isBlockerEnabled.collectAsState()
+                val isUsingDefaultPin by BlockController.isUsingDefaultPin.collectAsState()
 
                 val navController = rememberNavController()
 
@@ -108,34 +106,53 @@ class MainActivity : ComponentActivity() {
                                 SetupScreen(
                                     modifier = Modifier.padding(innerPadding),
                                     permissionState = permissionState,
-                                    limit = limit,
-                                    usedTodayMs = usedTodayMs,
-                                    limitRemainingMs = limitRemainingMs,
-                                    isBlockingEffective = isBlockingEffective,
-                                    sessionRemainingMs = sessionRemainingMs,
-                                    pinExtensionsRemainingToday =
-                                        (BlockPolicy.MAX_PIN_EXTENSIONS_PER_DAY - pinExtensionsUsedToday)
-                                            .coerceAtLeast(0),
-                                    selectedLimitMs = selectedLimitMs,
-                                    onSelectLimit = { selectedLimitMs = it },
-                                    onRequestSetLimit = { limitMs -> requestSetLimit(limitMs) },
-                                    onRequestDisable = { pinRequest = PinRequest.Disable },
-                                    onRequestPause = {
-                                        if (BlockController.hasPinExtensionsLeft()) {
-                                            pinRequest = PinRequest.Pause(
-                                                BlockPolicy.PAUSE_DURATION_MS,
-                                            )
-                                        }
+                                    apps = appStates,
+                                    blockerEnabled = blockerEnabled,
+                                    isUsingDefaultPin = isUsingDefaultPin,
+                                    onAddApps = { navController.navigate("add_apps") },
+                                    onRequestSetLimit = { packageName, limitMs ->
+                                        requestSetLimit(packageName, limitMs)
                                     },
-                                    onResumeNow = { BlockController.endSession() },
+                                    onRequestRemove = { packageName ->
+                                        requestRemove(packageName)
+                                    },
+                                    onRequestUnlock = { packageName ->
+                                        requestUnlock(packageName, appStates)
+                                    },
+                                    onResumeBlocking = { packageName ->
+                                        BlockController.endOverride(packageName)
+                                        toast("Blocking resumed")
+                                    },
+                                    onEnableProtection = { enableProtection() },
+                                    onRequestDisable = { pinRequest = PinRequest.Disable },
+                                    onManagePin = { showPinSettings = true },
                                     onOpenAccessibilitySettings = { openAccessibilitySettings() },
                                     onOpenOverlaySettings = { openOverlaySettings() },
                                     onRequestNotifications = { requestNotificationPermission() },
-                                    onPreviewOverlay = { previewOverlay() },
+                                    onPreviewOverlay = { previewOverlay(appStates) },
                                     onOpenAbout = { navController.navigate("about") },
                                 )
                             }
                         }
+
+                        composable("add_apps") {
+                            AppPickerScreen(
+                                modifier = Modifier.fillMaxSize(),
+                                trackedPackages = appStates.map { it.packageName }.toSet(),
+                                onNavigateBack = { navController.popBackStack() },
+                                onAddApps = { packageNames ->
+                                    val added = BlockController.addApps(packageNames)
+                                    if (added > 0) {
+                                        toast(
+                                            if (added == 1) "App protected"
+                                            else "$added apps protected",
+                                        )
+                                    }
+                                    navController.popBackStack()
+                                },
+                            )
+                        }
+
                         composable("about") {
                             AboutScreen(
                                 accessibilityEnabled = permissionState.accessibilityEnabled,
@@ -146,14 +163,22 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    val request = pinRequest
-                    if (request != null) {
+                    pinRequest?.let { request ->
                         PinDialog(
                             title = request.title,
                             message = request.message,
                             confirmLabel = "Confirm",
                             onDismiss = { pinRequest = null },
                             onConfirm = { pin -> confirmWithPin(request, pin) },
+                        )
+                    }
+
+                    if (showPinSettings) {
+                        PinSettingsDialog(
+                            isUsingDefaultPin = isUsingDefaultPin,
+                            onDismiss = { showPinSettings = false },
+                            onVerifyCurrentPin = { pin -> BlockController.authorize(pin) },
+                            onChangePin = { pin -> BlockController.setPinAfterAuthorization(pin) },
                         )
                     }
                 }
@@ -186,27 +211,72 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Sets the first daily allowance without a PIN; later changes go through [PinRequest.SetLimit].
+     * Enables protection. Arming is always free; only weakening it needs the PIN.
      */
-    private fun requestSetLimit(limitMs: Long) {
-        if (BlockController.isPinRequiredToSetLimit()) {
-            if (!BlockController.canChangeDailyLimit()) {
-                android.widget.Toast.makeText(
-                    this,
-                    "Daily limit can only be changed 1 time per day. Try again tomorrow.",
-                    android.widget.Toast.LENGTH_LONG,
-                ).show()
-                return
-            }
-            pinRequest = PinRequest.SetLimit(limitMs)
+    private fun enableProtection() {
+        if (!BlockController.setBlockerEnabled(true)) {
+            toast("Add at least one app before starting protection.")
+            return
+        }
+        OverlayController.keepAlive(this)
+        // A protected app may already be on screen: evaluate it without waiting for an event.
+        BlockerAccessibilityService.instance?.recheckForeground()
+        toast("Protection started")
+    }
+
+    /**
+     * Sets an app's allowance. The first configuration is free; after arming, the change needs
+     * the PIN and is limited to one change per app per day.
+     */
+    private fun requestSetLimit(packageName: String, limitMs: Long) {
+        val current = BlockController.trackedApp(packageName)
+        if (current == null) {
+            toast("That app is no longer protected.")
+            return
+        }
+        if (current.limitMs == limitMs) {
+            toast("That allowance is already set.")
             return
         }
 
-        val accepted = BlockController.applyDailyLimit(limitMs, pin = null)
-        android.util.Log.i(TAG, "Initial limit=$limitMs accepted=$accepted")
-        if (accepted) {
-            OverlayController.keepAlive(this)
+        if (!BlockController.isPinRequiredForSettings()) {
+            if (BlockController.applyLimit(packageName, limitMs, pin = null)) {
+                toast("Allowance updated")
+                if (BlockController.isBlockerEnabled.value) OverlayController.keepAlive(this)
+            }
+            return
         }
+
+        if (!BlockController.canChangeLimit(packageName)) {
+            toast("An app's allowance can only be changed once per day. Try again tomorrow.")
+            return
+        }
+        pinRequest = PinRequest.SetLimit(packageName, current.label, limitMs)
+    }
+
+    /**
+     * Removes an app from the protected list. Free before the first arming, PIN-protected after.
+     */
+    private fun requestRemove(packageName: String) {
+        val app = BlockController.trackedApp(packageName) ?: return
+        if (BlockController.isPinRequiredForSettings()) {
+            pinRequest = PinRequest.Remove(packageName, app.label)
+        } else {
+            removeApp(packageName, pin = null)
+        }
+    }
+
+    private fun requestUnlock(packageName: String, appStates: List<TrackedAppState>) {
+        val state = appStates.firstOrNull { it.packageName == packageName } ?: return
+        if (state.overridesRemainingToday <= 0) {
+            toast("No PIN unlocks left today for ${state.label}.")
+            return
+        }
+        pinRequest = PinRequest.Unlock(
+            packageName = packageName,
+            label = state.label,
+            unlocksLeft = state.overridesRemainingToday,
+        )
     }
 
     /**
@@ -216,46 +286,54 @@ class MainActivity : ComponentActivity() {
      */
     private fun confirmWithPin(request: PinRequest, code: String): Boolean {
         val accepted = when (request) {
-            is PinRequest.SetLimit -> {
-                if (BlockController.isPinRequiredToSetLimit() && !BlockController.canChangeDailyLimit()) {
-                    android.widget.Toast.makeText(
-                        this,
-                        "Daily limit can only be changed 1 time per day. Try again tomorrow.",
-                        android.widget.Toast.LENGTH_LONG,
-                    ).show()
-                    return false
+            is PinRequest.Unlock -> {
+                if (!BlockController.canOverride(request.packageName)) {
+                    toast("No PIN unlocks left today for ${request.label}.")
+                    return true
                 }
-                BlockController.applyDailyLimit(request.limitMs, code)
+                BlockController.submitPin(request.packageName, code)
             }
-            is PinRequest.Disable -> BlockController.setLimiterEnabled(false, code)
-            is PinRequest.Pause -> BlockController.pauseFor(request.durationMs, code)
+
+            is PinRequest.SetLimit -> {
+                if (!BlockController.canChangeLimit(request.packageName)) {
+                    toast("An app's allowance can only be changed once per day.")
+                    return true
+                }
+                BlockController.applyLimit(request.packageName, request.limitMs, code)
+            }
+
+            is PinRequest.Remove -> removeApp(request.packageName, code)
+
+            PinRequest.Disable -> BlockController.setBlockerEnabled(false, code)
         }
         android.util.Log.i(TAG, "PIN request=$request accepted=$accepted")
 
         if (accepted) {
             when (request) {
+                is PinRequest.Unlock -> toast("${request.label} unlocked for five minutes")
                 is PinRequest.SetLimit -> {
                     OverlayController.keepAlive(this)
-                    android.widget.Toast.makeText(this, "Daily limit updated", android.widget.Toast.LENGTH_SHORT).show()
+                    toast("Allowance updated")
                 }
-                is PinRequest.Disable -> OverlayController.stop(this)
-                is PinRequest.Pause -> Unit
-            }
-        } else {
-            when (request) {
-                is PinRequest.SetLimit -> {
-                    if (BlockController.isPinRequiredToSetLimit() && !BlockController.canChangeDailyLimit()) {
-                        android.widget.Toast.makeText(
-                            this,
-                            "Daily limit can only be changed 1 time per day. Try again tomorrow.",
-                            android.widget.Toast.LENGTH_LONG,
-                        ).show()
-                    }
+                is PinRequest.Remove -> Unit // removeApp already reported the result
+                PinRequest.Disable -> {
+                    OverlayController.stop(this)
+                    toast("Protection turned off")
                 }
-                else -> Unit
             }
         }
         return accepted
+    }
+
+    private fun removeApp(packageName: String, pin: String?): Boolean {
+        if (!BlockController.removeApp(packageName, pin)) return false
+
+        if (BlockController.apps.value.isEmpty()) {
+            // Nothing left to protect: tear the foreground service down.
+            OverlayController.stop(this)
+        }
+        toast("App removed")
+        return true
     }
 
     private fun openAccessibilitySettings() {
@@ -293,13 +371,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Raises the lock screen over this app so the flow can be verified without Instagram. */
-    private fun previewOverlay() {
+    /** Raises the lock screen over a protected app so the flow can be verified end to end. */
+    private fun previewOverlay(appStates: List<TrackedAppState>) {
+        val target = appStates.firstOrNull()
+        if (target == null) {
+            toast("Add an app before previewing the lock screen.")
+            return
+        }
         if (!PermissionUtils.canDrawOverlays(this)) {
             openOverlaySettings()
             return
         }
-        OverlayController.show(this, BlockPolicy.PRIMARY_PACKAGE)
+        OverlayController.show(this, target.packageName, webBlock = false)
     }
 
     private fun refreshPermissionState() {
@@ -315,8 +398,11 @@ class MainActivity : ComponentActivity() {
             } else {
                 true
             },
-            targetInstalled = PermissionUtils.isTargetInstalled(this),
         )
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private companion object {
@@ -332,21 +418,39 @@ private sealed interface PinRequest {
     val title: String
     val message: String
 
-    data class SetLimit(val limitMs: Long) : PinRequest {
+    data class Unlock(
+        val packageName: String,
+        val label: String,
+        val unlocksLeft: Int,
+    ) : PinRequest {
         override val title: String = "Enter your PIN"
         override val message: String =
-            "Confirm the daily limit of ${formatLimit(limitMs)}."
+            "Unlock $label for five minutes. $unlocksLeft of " +
+                "${BlockPolicy.MAX_OVERRIDES_PER_APP_PER_DAY} unlocks left today."
+    }
+
+    data class SetLimit(
+        val packageName: String,
+        val label: String,
+        val limitMs: Long,
+    ) : PinRequest {
+        override val title: String = "Enter your PIN"
+        override val message: String =
+            "Change the daily allowance for $label to ${formatLimit(limitMs)}."
+    }
+
+    data class Remove(
+        val packageName: String,
+        val label: String,
+    ) : PinRequest {
+        override val title: String = "Enter your PIN"
+        override val message: String =
+            "Removing $label stops its timer and makes the app usable without limits."
     }
 
     data object Disable : PinRequest {
         override val title: String = "Enter your PIN"
         override val message: String =
-            "Turning the blocker off needs your PIN."
-    }
-
-    data class Pause(val durationMs: Long) : PinRequest {
-        override val title: String = "Enter your PIN"
-        override val message: String =
-            "Pausing for ${durationMs / 60_000} minutes needs your PIN."
+            "Turning protection off needs your PIN."
     }
 }

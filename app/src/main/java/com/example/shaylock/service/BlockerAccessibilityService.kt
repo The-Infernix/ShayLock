@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -23,10 +22,9 @@ import kotlinx.coroutines.launch
  * The blocker watchdog.
  *
  * Responsibilities:
- *  1. Observe foreground window changes and detect when a blocked app (Instagram) is opened.
- *  2. Measure how much of the daily allowance is actually consumed - only the time the blocked
- *     app is really on screen is charged to the allowance.
- *  3. Raise the full-screen lock overlay over that app as soon as the allowance is used up.
+ *  1. Observe foreground window changes and detect when any protected app is opened.
+ *  2. Measure how much of each app's allowance is actually consumed.
+ *  3. Raise the full-screen lock overlay over that app as soon as its allowance is used up.
  *  4. Swallow the HOME / BACK / APP-SWITCH key events while the overlay is on screen so the
  *     user cannot simply navigate around the lock.
  *
@@ -41,20 +39,17 @@ class BlockerAccessibilityService : AccessibilityService() {
     private var foregroundPackage: String? = null
 
     /**
-     * Windows that can appear over the blocked app without replacing it.
+     * Windows that can appear over a protected app without replacing it.
      *
      * Their events must never become the "foreground app" used for the block decision, and they
-     * must not pause usage counting either: the blocked app is still behind them and the system
+     * must not pause usage counting either: the protected app is still behind them and the system
      * does not always deliver a new window-state event when they disappear. That combination used
-     * to pause the timer (e.g. while watching reels) until the next Instagram UI change.
+     * to pause the timer (e.g. while watching reels) until the next UI change.
      */
     private val transientPackages = mutableSetOf("com.android.systemui")
 
     /** True while the screen-state receiver is registered. */
     private var screenReceiverRegistered = false
-
-    /** True when blocking instagram.com in Chrome with no PIN bypass allowed. */
-    private var permanentChromeWebBlock = false
 
     /**
      * Stops the allowance while the screen is off. Transient system-UI events no longer pause the
@@ -81,7 +76,7 @@ class BlockerAccessibilityService : AccessibilityService() {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         BlockController.initialize(applicationContext)
 
-        // The keyboard is a separate window; its events must not end the blocked app's session.
+        // The keyboard is a separate window; its events must not end the protected app's session.
         getSystemService(InputMethodManager::class.java)
             ?.enabledInputMethodList
             ?.forEach { transientPackages += it.packageName }
@@ -90,18 +85,16 @@ class BlockerAccessibilityService : AccessibilityService() {
 
         Log.i(TAG, "Blocker watchdog connected")
 
-        // The block has to appear the moment the allowance runs out, even if the user never
-        // leaves the app, and it has to come back when the unlock session ends.
+        // Re-evaluate whenever any app crosses its limit or an override starts/ends. Collecting
+        // the derived package set (instead of the ticking state) keeps this cheap.
         scope?.launch {
-            BlockController.isBlockingEffective.collect {
+            BlockController.blockedPackages.collect {
                 evaluateBlocking(foregroundPackage)
             }
         }
 
         // Pick up the app that is already on screen when the service is (re)connected.
         resumeFromCurrentWindow()
-
-        // If the allowance was already used up when the service was (re)connected, pick it up.
         evaluateBlocking(foregroundPackage)
     }
 
@@ -176,16 +169,11 @@ class BlockerAccessibilityService : AccessibilityService() {
      * Returning `true` consumes the event so the system never acts on it. The guard on
      * [OverlayService.isOverlayShowing] is what keeps the rest of the device usable: outside of a
      * block the keys are passed straight through.
-     *
-     * Note: only one accessibility service can hold the key-filtering capability at a time on a
-     * given device, so this may be unavailable if the user has another key-filtering service
-     * enabled. The watchdog re-arms the overlay whenever the blocked app returns to the
-     * foreground, which is the fallback enforcement path.
      */
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
         if (!OverlayService.isOverlayShowing) return false
-        if (BlockController.isUnlockSessionActive()) return false
+        if (BlockController.isAnyOverrideActive()) return false
 
         return when (event.keyCode) {
             KeyEvent.KEYCODE_HOME,
@@ -201,7 +189,7 @@ class BlockerAccessibilityService : AccessibilityService() {
      * Re-evaluates the app that is currently on screen.
      *
      * Used when the overlay service is recreated after a process death: there may be no fresh
-     * accessibility event, but the blocked app can already be visible.
+     * accessibility event, but the protected app can already be visible.
      */
     fun recheckForeground() {
         resumeFromCurrentWindow()
@@ -227,51 +215,55 @@ class BlockerAccessibilityService : AccessibilityService() {
         return super.onUnbind(intent)
     }
 
+    /**
+     * Detects instagram.com in the Chrome URL bar.
+     *
+     * The web rule exists because the browser was an obvious bypass around the native app. It is
+     * only armed while an Instagram package is actually tracked.
+     */
     private fun isInstagramWebInChrome(): Boolean {
-        if (foregroundPackage != "com.android.chrome" && foregroundPackage != "com.chrome.beta" && foregroundPackage != "com.chrome.dev" && foregroundPackage != "com.chrome.canary") return false
+        if (foregroundPackage !in CHROME_PACKAGES) return false
+
         val root = rootInActiveWindow ?: return false
         try {
-            // Try common URL bar ids across Chrome variants
-            val ids = listOf(
-                "com.android.chrome:id/url_bar",
-                "com.chrome.beta:id/url_bar",
-                "com.chrome.dev:id/url_bar",
-                "com.chrome.canary:id/url_bar",
-                "org.chromium.chrome:id/url_bar",
-            )
+            // Try common URL bar ids across Chrome variants.
+            val ids = CHROME_PACKAGES.flatMap { packageName ->
+                listOf(
+                    "$packageName:id/url_bar",
+                    "org.chromium.chrome:id/url_bar",
+                )
+            }.distinct()
+
             for (id in ids) {
-                val urlBars = root.findAccessibilityNodeInfosByViewId(id)
-                if (!urlBars.isNullOrEmpty()) {
-                    for (node in urlBars) {
-                        val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
-                        if (text.contains("instagram.com", ignoreCase = true)) {
-                            return true
-                        }
-                    }
-                    break
+                val urlBars = root.findAccessibilityNodeInfosByViewId(id) ?: continue
+                if (urlBars.isEmpty()) continue
+                for (node in urlBars) {
+                    val text = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+                    if (text.contains("instagram.com", ignoreCase = true)) return true
                 }
+                break
             }
-            // Also scan all nodes for instagram.com text as fallback (covers incognito/custom UI)
-            val allNodes = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+
+            // Fallback: scan the visible tree (covers incognito and custom browser UIs).
             val stack = ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
             stack.addLast(root)
-            while (stack.isNotEmpty() && allNodes.size < 200) {
-                val n = stack.removeLast()
-                allNodes.add(n)
-                for (i in 0 until n.childCount) {
-                    val c = n.getChild(i) ?: continue
-                    stack.addLast(c)
-                }
-            }
-            for (node in allNodes) {
-                val t = node.text?.toString().orEmpty()
-                val d = node.contentDescription?.toString().orEmpty()
-                if (t.contains("instagram.com", ignoreCase = true) || d.contains("instagram.com", ignoreCase = true)) {
+            var visited = 0
+            while (stack.isNotEmpty() && visited < 200) {
+                val node = stack.removeLast()
+                visited++
+                val text = node.text?.toString().orEmpty()
+                val description = node.contentDescription?.toString().orEmpty()
+                if (text.contains("instagram.com", ignoreCase = true) ||
+                    description.contains("instagram.com", ignoreCase = true)
+                ) {
                     return true
+                }
+                for (index in 0 until node.childCount) {
+                    node.getChild(index)?.let(stack::addLast)
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to inspect Chrome URL bar", e)
+            Log.w(TAG, "Failed to inspect the Chrome URL bar", e)
         }
         return false
     }
@@ -284,54 +276,72 @@ class BlockerAccessibilityService : AccessibilityService() {
     private fun evaluateBlocking(packageName: String?) {
         val target = packageName ?: return
 
-        val isChromeInstagramWeb = (target == "com.android.chrome" || target == "com.chrome.beta" || target == "com.chrome.dev" || target == "com.chrome.canary") && isInstagramWebInChrome()
-        if (isChromeInstagramWeb) {
-            permanentChromeWebBlock = true
-            if (OverlayService.isOverlayShowing) {
-                OverlayController.hide(this)
-            }
-            Log.i(TAG, "Blocking instagram.com in Chrome - permanent web block (no PIN)")
-            OverlayController.show(this, BlockPolicy.PRIMARY_PACKAGE)
+        val webTarget = resolveWebTarget(target)
+        if (webTarget != null && BlockController.isWebBlockActive(webTarget)) {
+            showOverlay(webTarget, webBlock = true)
             BlockController.setUsageCountingSuppressed(true)
             return
         }
 
-        if (permanentChromeWebBlock && target !in setOf("com.android.chrome", "com.chrome.beta", "com.chrome.dev", "com.chrome.canary")) {
-            permanentChromeWebBlock = false
-        }
-
-        val shouldBlock =
-            BlockPolicy.isBlockedPackage(target) &&
-                BlockController.isBlockingEffective.value
-
-        if (shouldBlock) {
-            if (!OverlayService.isOverlayShowing || permanentChromeWebBlock) {
-                if (permanentChromeWebBlock) {
-                    permanentChromeWebBlock = false
-                    OverlayController.hide(this)
-                }
-                val used = BlockController.usedTodayMs.value
-                val limit = BlockController.dailyLimit.value.limitMs
-                Log.i(TAG, "Blocking $target - daily allowance used up ($used / $limit ms)")
-                OverlayController.show(this, target)
-            }
+        if (BlockController.shouldBlock(target)) {
+            showOverlay(target, webBlock = false)
             // The user is looking at the lock screen, not at the app: stop charging the allowance.
             BlockController.setUsageCountingSuppressed(true)
+            val state = BlockController.appStates.value.firstOrNull { it.packageName == target }
+            Log.i(
+                TAG,
+                "Blocking $target - daily allowance used up " +
+                    "(${state?.usedMs ?: 0} / ${state?.limitMs ?: 0} ms)",
+            )
         } else {
-            if (OverlayService.isOverlayShowing && !permanentChromeWebBlock) {
-                Log.i(TAG, "Releasing overlay")
-                OverlayController.hide(this)
-            } else if (OverlayService.isOverlayShowing && permanentChromeWebBlock && !isChromeInstagramWeb) {
-                permanentChromeWebBlock = false
-                Log.i(TAG, "Releasing overlay")
-                OverlayController.hide(this)
-            }
+            hideOverlay()
             BlockController.setUsageCountingSuppressed(false)
+        }
+    }
+
+    /** The Instagram package whose override budget the current Chrome tab should consume. */
+    private fun resolveWebTarget(target: String): String? {
+        if (target !in CHROME_PACKAGES) return null
+        if (!BlockController.isInstagramTracked()) return null
+        if (!isInstagramWebInChrome()) return null
+
+        return BlockPolicy.INSTAGRAM_PACKAGES.firstOrNull { BlockController.isTracked(it) }
+    }
+
+    /**
+     * Raises the overlay, or switches it when the visible target/rule changed underneath it.
+     */
+    private fun showOverlay(target: String, webBlock: Boolean) {
+        if (!OverlayService.isOverlayShowing) {
+            OverlayController.show(this, target, webBlock)
+            return
+        }
+
+        if (OverlayWindowHost.currentTargetPackage != target ||
+            OverlayWindowHost.currentWebBlock != webBlock
+        ) {
+            Log.i(TAG, "Switching lock screen to $target (webBlock=$webBlock)")
+            OverlayWindowHost.dismiss()
+            OverlayController.show(this, target, webBlock)
+        }
+    }
+
+    private fun hideOverlay() {
+        if (OverlayService.isOverlayShowing) {
+            Log.i(TAG, "Releasing overlay")
+            OverlayController.hide(this)
         }
     }
 
     companion object {
         private const val TAG = "BlockerA11y"
+
+        private val CHROME_PACKAGES = setOf(
+            "com.android.chrome",
+            "com.chrome.beta",
+            "com.chrome.dev",
+            "com.chrome.canary",
+        )
 
         @Volatile
         var instance: BlockerAccessibilityService? = null

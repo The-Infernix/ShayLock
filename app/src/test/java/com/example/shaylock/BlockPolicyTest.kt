@@ -7,27 +7,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the blocking policy that is shared by the watchdog and the overlay.
+ * Unit tests for the hard-coded blocking rules shared by the watchdog and the UI.
  */
 class BlockPolicyTest {
 
     @Test
-    fun `instagram packages are blocked`() {
-        assertTrue(BlockPolicy.isBlockedPackage("com.instagram.android"))
-        assertTrue(BlockPolicy.isBlockedPackage("com.instagram.lite"))
+    fun `legacy instagram packages are recognised`() {
+        assertTrue(BlockPolicy.isInstagramPackage("com.instagram.android"))
+        assertTrue(BlockPolicy.isInstagramPackage("com.instagram.lite"))
     }
 
     @Test
-    fun `other packages are not blocked`() {
-        assertFalse(BlockPolicy.isBlockedPackage("com.android.settings"))
-        assertFalse(BlockPolicy.isBlockedPackage("com.example.shaylock"))
-        assertFalse(BlockPolicy.isBlockedPackage(null))
-        assertFalse(BlockPolicy.isBlockedPackage(""))
-    }
-
-    @Test
-    fun `the primary package is part of the blocked set`() {
-        assertTrue(BlockPolicy.BLOCKED_PACKAGES.contains(BlockPolicy.PRIMARY_PACKAGE))
+    fun `other packages are not instagram`() {
+        assertFalse(BlockPolicy.isInstagramPackage("com.android.settings"))
+        assertFalse(BlockPolicy.isInstagramPackage("com.example.shaylock"))
+        assertFalse(BlockPolicy.isInstagramPackage(null))
+        assertFalse(BlockPolicy.isInstagramPackage(""))
     }
 
     @Test
@@ -36,11 +31,28 @@ class BlockPolicyTest {
     }
 
     @Test
-    fun `pin extensions stop after three uses a day`() {
-        assertTrue(BlockPolicy.canUsePinExtension(0))
-        assertTrue(BlockPolicy.canUsePinExtension(2))
-        assertFalse(BlockPolicy.canUsePinExtension(3))
-        assertFalse(BlockPolicy.canUsePinExtension(4))
+    fun `overrides stop after three uses per app per day`() {
+        assertTrue(BlockPolicy.canOverride(0))
+        assertTrue(BlockPolicy.canOverride(2))
+        assertFalse(BlockPolicy.canOverride(3))
+        assertFalse(BlockPolicy.canOverride(4))
+        assertEquals(3, BlockPolicy.MAX_OVERRIDES_PER_APP_PER_DAY)
+    }
+
+    @Test
+    fun `an override lasts five minutes`() {
+        assertEquals(5L * 60L * 1000L, BlockPolicy.OVERRIDE_DURATION_MS)
+    }
+
+    @Test
+    fun `an allowance can only be changed once per app per day`() {
+        assertEquals(1, BlockPolicy.MAX_LIMIT_CHANGES_PER_APP_PER_DAY)
+    }
+
+    @Test
+    fun `the legacy pin is a valid four digit pin`() {
+        assertEquals(BlockPolicy.PIN_LENGTH, BlockPolicy.DEFAULT_PIN.length)
+        assertTrue(BlockPolicy.DEFAULT_PIN.all { it.isDigit() })
     }
 
     @Test

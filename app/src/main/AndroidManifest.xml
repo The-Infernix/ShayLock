@@ -16,10 +16,16 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
-        Package visibility (Android 11+): needed to check whether Instagram is installed and to
-        resolve its user facing app name.
+        Package visibility (Android 11+). The launcher intent makes every installed, launchable
+        app visible to the app picker. The two Instagram packages stay listed explicitly because
+        the 1.x migration and the optional Chrome web block check them before the picker is ever
+        opened.
     -->
     <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <package android:name="com.instagram.android" />
         <package android:name="com.instagram.lite" />
     </queries>

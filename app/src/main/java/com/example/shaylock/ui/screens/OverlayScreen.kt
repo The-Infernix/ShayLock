@@ -69,31 +69,37 @@ import com.example.shaylock.ui.theme.InkTop
 import com.example.shaylock.util.AppLabels
 
 /**
- * The strict lock screen that is drawn on top of a blocked app.
+ * The strict lock screen that is drawn on top of a protected app.
  *
- * The only way out is the correct 4-digit PIN. There is no "skip", no "snooze" and the back /
- * home buttons are swallowed by the window and by the accessibility watchdog.
+ * Every app has its own override budget, so the copy and the remaining counter are derived from
+ * [targetPackage]'s [com.example.shaylock.core.TrackedAppState] rather than from a global limit.
+ *
+ * [webBlock] marks the optional instagram.com-in-Chrome rule. It shares Instagram's override
+ * budget, which gives the user a capped way out instead of trapping them in Chrome.
  */
 @Composable
 fun OverlayScreen(
     targetPackage: String,
+    webBlock: Boolean,
     onSubmitPin: (String) -> Boolean,
     onUnlocked: () -> Unit,
 ) {
     val context = LocalContext.current
-    val appLabel = remember(targetPackage) { AppLabels.labelFor(context, targetPackage) }
+    val appStates by BlockController.appStates.collectAsState()
+    val state = appStates.firstOrNull { it.packageName == targetPackage }
+    val appLabel = state?.label ?: remember(targetPackage) {
+        AppLabels.labelFor(context, targetPackage)
+    }
 
-    val limit by BlockController.dailyLimit.collectAsState()
-    val usedTodayMs by BlockController.usedTodayMs.collectAsState()
-    val pinExtensionsUsedToday by BlockController.pinExtensionsUsedToday.collectAsState()
-    val pinExtensionsRemaining =
-        (BlockPolicy.MAX_PIN_EXTENSIONS_PER_DAY - pinExtensionsUsedToday).coerceAtLeast(0)
+    val overridesRemaining = state?.overridesRemainingToday ?: 0
+    val usedMs = state?.usedMs ?: 0L
+    val limitMs = state?.limitMs ?: 0L
 
     var pin by remember { mutableStateOf("") }
     var hasError by remember { mutableStateOf(false) }
 
     fun submit() {
-        if (pinExtensionsRemaining <= 0) return
+        if (overridesRemaining <= 0) return
         if (pin.length != BlockPolicy.PIN_LENGTH) return
         if (onSubmitPin(pin)) {
             hasError = false
@@ -138,7 +144,7 @@ fun OverlayScreen(
                 PulsingDot(color = InkDanger)
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    text = "BLOCKED",
+                    text = if (webBlock) "WEB BLOCKED" else "BLOCKED",
                     style = MaterialTheme.typography.labelMedium,
                     color = InkDanger,
                     letterSpacing = 1.8.sp,
@@ -165,7 +171,11 @@ fun OverlayScreen(
             Spacer(Modifier.height(20.dp))
 
             Text(
-                text = "$appLabel is blocked",
+                text = if (webBlock) {
+                    "$appLabel on the web is blocked"
+                } else {
+                    "$appLabel is blocked"
+                },
                 style = MaterialTheme.typography.headlineSmall,
                 color = InkTextPrimary,
                 textAlign = TextAlign.Center,
@@ -174,17 +184,20 @@ fun OverlayScreen(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = if (limit.limitMs > 0L) {
-                    "Your daily allowance is used up. It resets automatically at midnight."
-                } else {
-                    "$appLabel is blocked until the rule is turned off."
+                text = when {
+                    webBlock ->
+                        "Use the $appLabel app, or enter your PIN to keep browsing for five minutes."
+                    limitMs > 0L ->
+                        "Your daily allowance for $appLabel is used up. It resets at midnight."
+                    else ->
+                        "$appLabel is blocked until the rule is turned off."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = InkTextSecondary,
                 textAlign = TextAlign.Center,
             )
 
-            if (limit.limitMs > 0L) {
+            if (!webBlock && limitMs > 0L) {
                 Spacer(Modifier.height(18.dp))
 
                 Row(
@@ -192,7 +205,7 @@ fun OverlayScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
-                        text = "${formatLimit(usedTodayMs)} used",
+                        text = "${formatLimit(usedMs)} used",
                         style = MaterialTheme.typography.labelLarge,
                         color = InkTextPrimary,
                     )
@@ -203,7 +216,7 @@ fun OverlayScreen(
                             .background(InkHairline),
                     )
                     Text(
-                        text = "${formatLimit(limit.limitMs)} allowance",
+                        text = "${formatLimit(limitMs)} allowance",
                         style = MaterialTheme.typography.labelLarge,
                         color = InkTextSecondary,
                     )
@@ -222,10 +235,13 @@ fun OverlayScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = if (pinExtensionsRemaining > 0) {
-                        "Enter your 4-digit PIN to unlock for 5 minutes."
-                    } else {
-                        "No PIN extensions left today."
+                    text = when {
+                        overridesRemaining > 0 && webBlock ->
+                            "Enter your 4-digit PIN to continue in Chrome for 5 minutes."
+                        overridesRemaining > 0 ->
+                            "Enter your 4-digit PIN to unlock $appLabel for 5 minutes."
+                        else ->
+                            "No PIN unlocks left today for $appLabel."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = InkTextSecondary,
@@ -235,14 +251,14 @@ fun OverlayScreen(
                 Spacer(Modifier.height(6.dp))
 
                 Text(
-                    text = if (pinExtensionsRemaining > 0) {
-                        "$pinExtensionsRemaining of " +
-                            "${BlockPolicy.MAX_PIN_EXTENSIONS_PER_DAY} PIN extensions left today"
+                    text = if (overridesRemaining > 0) {
+                        "$overridesRemaining of " +
+                            "${BlockPolicy.MAX_OVERRIDES_PER_APP_PER_DAY} unlocks left today"
                     } else {
-                        "Instagram stays blocked until midnight."
+                        "$appLabel stays blocked until midnight."
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (pinExtensionsRemaining > 0) InkTextTertiary else InkDanger,
+                    color = if (overridesRemaining > 0) InkTextTertiary else InkDanger,
                     textAlign = TextAlign.Center,
                 )
 
@@ -279,7 +295,7 @@ fun OverlayScreen(
                 Spacer(Modifier.height(4.dp))
 
                 NumericKeypad(
-                    enabled = pinExtensionsRemaining > 0,
+                    enabled = overridesRemaining > 0,
                     onDigit = { digit ->
                         hasError = false
                         if (pin.length < BlockPolicy.PIN_LENGTH) {
@@ -299,7 +315,7 @@ fun OverlayScreen(
 
                 Button(
                     onClick = { submit() },
-                    enabled = pinExtensionsRemaining > 0 &&
+                    enabled = overridesRemaining > 0 &&
                         pin.length == BlockPolicy.PIN_LENGTH,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -319,7 +335,8 @@ fun OverlayScreen(
             Spacer(Modifier.height(18.dp))
 
             Text(
-                text = "The correct PIN opens Instagram for five minutes.",
+                text = "The PIN opens one app for five minutes, " +
+                    "${BlockPolicy.MAX_OVERRIDES_PER_APP_PER_DAY} times per app each day.",
                 style = MaterialTheme.typography.labelSmall,
                 color = InkTextTertiary,
                 letterSpacing = 0.4.sp,

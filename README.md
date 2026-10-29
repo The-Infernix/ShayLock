@@ -8,40 +8,43 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/Website-shaylock.vercel.app-black)](https://shaylock.vercel.app/)
 
-A strict, dark-themed Instagram screen-time blocker for Android. ShayLock limits daily usage of Instagram (`com.instagram.android`) and Instagram Lite (`com.instagram.lite`), permanently blocks `instagram.com` in Chrome, locks the app behind a full-screen overlay when your allowance runs out, and protects critical actions with a PIN.
+A strict, dark-themed screen-time blocker for Android. Pick any installed app, give each one an independent daily allowance, and ShayLock covers it with a full-screen lock when that allowance runs out. A user-defined PIN protects overrides and every setting change.
 
 **[Download from the official website](https://shaylock.vercel.app/)** | **[Latest APK](https://github.com/The-Infernix/ShayLock/releases/latest/download/ShayLock.apk)**
 
 ## Features
 
-- **Fixed daily allowances** - 10s (testing), 5 min, 15 min, 30 min, 45 min, or 1 hour
-- **One limit change per day** - The configured allowance can only be changed once per calendar day
-- **Accurate usage tracking** - Only counts time while Instagram is actively in the foreground
-- **Full-screen lock overlay** - Blocks Instagram with a modal overlay that intercepts Back/Home/Recents
-- **PIN protection** - The PIN gates unlocking, pausing, changing limits, and turning off the blocker
-- **Limited PIN unlocks** - 3 PIN extensions per day; each 5-minute unlock or 15-minute pause consumes one
-- **Permanent Chrome web block** - `instagram.com` is blocked in Chrome instantly, with no PIN bypass and no daily-quota exemption
-- **System status & recovery** - Live permission badges and a Fix Permissions shortcut
-- **Automatic midnight reset** - Usage, PIN unlocks, and the limit-change cooldown reset at midnight
+- **Multi-app protection** - Choose any installed, launchable app from the built-in picker
+- **Independent timers** - Every protected app has its own allowance, usage counter and override budget
+- **Fixed daily allowances** - 10s (testing), 5 min, 15 min, 30 min, 45 min, or 1 hour per app
+- **One limit change per app per day** - The first configuration is free; later changes need the PIN and a daily cooldown
+- **Accurate usage tracking** - Only counts time while that app is actually in the foreground; lock-screen time is never charged
+- **Full-screen lock overlay** - A modal overlay intercepts Back/Home/Recents while an app is blocked
+- **User-defined PIN** - Stored as a salted PBKDF2-HMAC-SHA256 hash; the legacy `2310` PIN is only seeded for upgrades
+- **Limited PIN unlocks** - 3 unlocks per app per day; each unlocks that one app for 5 minutes
+- **Chrome web block** - While an Instagram package is protected, `instagram.com` in Chrome is blocked and shares Instagram's override budget
+- **System status & recovery** - Live permission badges, a Fix Permissions shortcut and a lock-screen preview
+- **Automatic midnight reset** - Usage, PIN unlocks and the limit-change cooldown reset at midnight
 - **Service resilience** - Foreground overlay service, accessibility watchdog, and WorkManager health checks
 - **Polished dark UI** - Custom Material 3 theme built entirely in Jetpack Compose
 
 ## How It Works
 
 1. **Grant permissions** - Enable the Accessibility Service and "Display over other apps" in system settings
-2. **Set your allowance** - Choose your daily limit and start blocking
-3. **Usage tracking** - The accessibility service monitors window changes and only charges time when Instagram is in focus
-4. **Lock on exhaustion** - When the allowance runs out, a full-screen lock screen appears over Instagram
-5. **Unlock with PIN** - Enter PIN (`2310`) to get a 5-minute session, or pause for 15 minutes (each counts toward 3 daily extensions)
-6. **Chrome stays blocked** - Opening `instagram.com` in Chrome shows the lock screen immediately; PIN sessions and daily quota do not apply
+2. **Pick apps** - Search the installed-app picker and add as many apps as you want to protect
+3. **Set allowances** - Each app starts at 30 minutes; adjust any app before starting protection for free
+4. **Start protection** - Arm the blocker; usage is tracked per app whenever it is in the foreground
+5. **Lock on exhaustion** - When an app's allowance runs out, the full-screen lock covers only that app
+6. **Unlock with PIN** - Your PIN opens one blocked app for 5 minutes, up to 3 times per app per day
+7. **Change settings with PIN** - Changing an allowance, removing an app or turning protection off needs the PIN
 
 ## Permissions Required
 
 | Permission | Purpose | Required |
 |------------|---------|----------|
-| **Accessibility Service** | Monitors foreground app and tracks Instagram usage | Yes |
-| **Display over other apps (SYSTEM_ALERT_WINDOW)** | Shows the lock overlay above Instagram | Yes |
-| **Notifications** | Health warnings if protection is disabled (Android 13+) | Optional |
+| **Accessibility Service** | Monitors the foreground app and tracks per-app usage | Yes |
+| **Display over other apps (SYSTEM_ALERT_WINDOW)** | Shows the lock overlay above a blocked app | Yes |
+| **Notifications** | Ongoing status and health warnings (Android 13+) | Optional |
 
 ## Build & Install
 
@@ -68,29 +71,31 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - **Language**: Kotlin
 - **UI**: Jetpack Compose + Material 3
 - **Architecture**: Service-based (AccessibilityService + Overlay Service)
-- **State Management**: StateFlow + SharedPreferences
+- **State Management**: StateFlow + Room + SharedPreferences
+- **Database**: Room (KSP code generation)
 - **Navigation**: Navigation Compose
 - **Background Work**: WorkManager
 - **Min SDK**: 26 (Android 8.0)
-- **Version**: 1.0.0
+- **Version**: 2.0.0
 
 ## Project Structure
 
 ```
 com.example.shaylock
-├── core/           # Business logic (BlockPolicy, BlockController, DailyLimit)
+├── core/           # BlockPolicy, BlockController, TrackedApp, DailyLimit, PinHasher
+├── data/           # Room database, DAO, entities, PinStore
 ├── service/        # Accessibility service, overlay service, health worker
+├── util/           # Installed-app catalog, app labels
 ├── ui/             # Compose screens, components, theme
 └── MainActivity.kt # Entry point
 ```
 
 ## Limitations
 
-- PIN is hardcoded (`2310`) in the APK
 - Chrome detection depends on the URL bar being exposed to the Accessibility Service
-- Only blocks Instagram, Instagram Lite, and `instagram.com` in Chrome
+- The Chrome web rule is Instagram-specific; other sites are not filtered
 - Gesture navigation may bypass some key swallowing on some devices
-- Usage counter is wall-clock based
+- Usage counter is wall-clock based and shifts if the system clock is changed
 - Clearing app data or uninstalling removes all restrictions
 
 ## Contributing

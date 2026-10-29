@@ -19,7 +19,7 @@ object OverlayController {
      * The service is normally already running as a foreground service (it is started when the
      * rule is armed), so this call only delivers a new intent to it.
      */
-    fun show(context: Context, targetPackage: String) {
+    fun show(context: Context, targetPackage: String, webBlock: Boolean = false) {
         if (!Settings.canDrawOverlays(context)) {
             Log.w(TAG, "Overlay permission not granted - cannot block $targetPackage")
             return
@@ -29,6 +29,7 @@ object OverlayController {
         val intent = Intent(context, OverlayService::class.java).apply {
             action = OverlayService.ACTION_SHOW
             putExtra(OverlayService.EXTRA_PACKAGE, targetPackage)
+            putExtra(OverlayService.EXTRA_WEB_BLOCK, webBlock)
         }
 
         if (start(context, intent)) return
@@ -37,7 +38,7 @@ object OverlayController {
         // The overlay window itself only needs the "display over other apps" permission, so it is
         // drawn straight from this context - the blocker must work even without the service.
         Log.w(TAG, "OverlayService unavailable - drawing the lock screen directly")
-        OverlayWindowHost.show(context, targetPackage) { /* nothing to stop */ }
+        OverlayWindowHost.show(context, targetPackage, webBlock) { /* nothing to stop */ }
     }
 
     /** Lowers the lock screen. */

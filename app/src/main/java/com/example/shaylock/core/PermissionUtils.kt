@@ -104,9 +104,9 @@ object PermissionUtils {
         }
     }
 
-    /** True when Instagram is actually installed on the device. */
-    fun isTargetInstalled(context: Context): Boolean = try {
-        context.packageManager.getApplicationInfo(BlockPolicy.PRIMARY_PACKAGE, 0)
+    /** True when [packageName] is actually installed on the device. */
+    fun isPackageInstalled(context: Context, packageName: String): Boolean = try {
+        context.packageManager.getApplicationInfo(packageName, 0)
         true
     } catch (e: Exception) {
         false

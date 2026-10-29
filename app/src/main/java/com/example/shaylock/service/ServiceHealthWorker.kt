@@ -34,7 +34,11 @@ class ServiceHealthWorker(
         BlockController.initialize(applicationContext)
 
         // Nothing to protect, nothing to warn about.
-        if (!BlockController.dailyLimit.value.isEnabled) return Result.success()
+        if (!BlockController.isBlockerEnabled.value ||
+            BlockController.apps.value.isEmpty()
+        ) {
+            return Result.success()
+        }
 
         val serviceEnabled =
             PermissionUtils.isAccessibilityServiceEnabledInSettings(applicationContext)

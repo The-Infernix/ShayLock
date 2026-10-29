@@ -55,7 +55,8 @@ class OverlayService : Service() {
         when (intent?.action) {
             ACTION_SHOW -> {
                 val target = intent.getStringExtra(EXTRA_PACKAGE).orEmpty()
-                OverlayWindowHost.show(this, target) {
+                val webBlock = intent.getBooleanExtra(EXTRA_WEB_BLOCK, false)
+                OverlayWindowHost.show(this, target, webBlock) {
                     // Valid PIN: tear the whole service down, the session took over.
                     Log.i(TAG, "Unlocked, stopping overlay service")
                     stopEverything()
@@ -170,6 +171,7 @@ class OverlayService : Service() {
         const val ACTION_KEEP_ALIVE = "com.example.shaylock.action.KEEP_ALIVE"
         const val ACTION_STOP = "com.example.shaylock.action.STOP_SERVICE"
         const val EXTRA_PACKAGE = "com.example.shaylock.extra.TARGET_PACKAGE"
+        const val EXTRA_WEB_BLOCK = "com.example.shaylock.extra.WEB_BLOCK"
 
         @Volatile
         var instance: OverlayService? = null

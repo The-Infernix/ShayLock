@@ -4,18 +4,18 @@
 
     <!-- Accessibility service -->
     <string name="accessibility_service_label">ShayLock Blocker</string>
-    <string name="accessibility_service_description">ShayLock uses this service to detect when Instagram is opened so it can display a full-screen lock screen over it. It only watches which app is in the foreground and blocks the Home, Back and Recents buttons while the lock screen is shown.</string>
+    <string name="accessibility_service_description">ShayLock uses this service to detect when one of your protected apps is opened so it can display a full-screen lock screen over it. It only watches which app is in the foreground and blocks the Home, Back and Recents buttons while the lock screen is shown.</string>
 
     <!-- Foreground service notification -->
     <string name="notification_channel_name">Blocking status</string>
     <string name="notification_channel_description">Shows an ongoing notification while app blocking is active.</string>
-    <string name="notification_blocking_title">ShayLock is blocking Instagram</string>
-    <string name="notification_blocking_text">Tap to open the blocker settings.</string>
+    <string name="notification_blocking_title">ShayLock protection is active</string>
+    <string name="notification_blocking_text">Your protected apps are being watched. Tap to open the dashboard.</string>
 
     <!-- Accessibility watchdog health notification -->
     <string name="notification_health_channel_name">Protection alerts</string>
     <string name="notification_health_channel_description">Warns you when ShayLock protection has been switched off.</string>
     <string name="notification_protection_off_title">Protection is off</string>
-    <string name="notification_protection_off_text">ShayLock\'s accessibility service is disabled, so Instagram is no longer being blocked. Tap to re-enable it.</string>
+    <string name="notification_protection_off_text">ShayLock\'s accessibility service is disabled, so your protected apps are no longer being blocked. Tap to re-enable it.</string>
     <string name="notification_protection_off_action">Open settings</string>
 </resources>

@@ -79,7 +79,7 @@ import com.example.shaylock.ui.theme.InkTextPrimary
 import com.example.shaylock.ui.theme.InkTextSecondary
 import com.example.shaylock.ui.theme.InkTextTertiary
 
-private const val APP_VERSION = "v1.0.0"
+private const val APP_VERSION = "v2.0.0"
 private const val GITHUB_URL = "https://github.com/The-Infernix/ShayLock.git"
 private const val PROJECT_REPO_URL = "https://the-infernix.github.io/ShayLock/"
 private const val WEBSITE_URL = "https://shaylock.vercel.app/"
@@ -194,7 +194,7 @@ fun AboutScreen(
                         },
                     )
                     Text(
-                        text = "Strict screen-time blocker for Instagram",
+                        text = "Strict multi-app screen-time blocker",
                         style = MaterialTheme.typography.bodyMedium,
                         color = InkTextTertiary,
                     )
@@ -346,7 +346,7 @@ fun AboutScreen(
                         )
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text = "100% On-Device Processing. ShayLock does not collect, store, or transmit your browsing activity or personal usage data.",
+                            text = "100% On-Device Processing. ShayLock does not collect, store, or transmit your app usage or personal data. Every timer and setting stays on this device.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = InkTextSecondary,
                             lineHeight = 22.sp,
@@ -384,6 +384,7 @@ fun AboutScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         CreditItem("Kotlin", "Apache 2.0")
                         CreditItem("Jetpack Compose", "Apache 2.0")
+                        CreditItem("Room", "Apache 2.0")
                         CreditItem("WorkManager", "Apache 2.0")
                         CreditItem("Material 3", "Apache 2.0")
                     }

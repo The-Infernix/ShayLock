@@ -18,8 +18,6 @@ data class PermissionUiState(
     val overlayGranted: Boolean = false,
     /** The app may post the foreground service notification (Android 13+). */
     val notificationsGranted: Boolean = false,
-    /** Instagram is actually installed on this device. */
-    val targetInstalled: Boolean = true,
 ) {
     /** The permission is enabled but the system has not connected the service yet. */
     val accessibilityConnecting: Boolean
